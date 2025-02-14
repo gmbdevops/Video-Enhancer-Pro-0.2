@@ -278,7 +278,7 @@ npx tsc Enhancer.ts
 Запустите скрипт:
 
 ```bash
-npx ts-node src/Enhancer.ts -i input.mp4 -o output_enhanced.mp4
+node Enhancer.js -i input.mp4 -o output_enhanced.mp4
 ```
 
 ## 🔧 Дополнительные настройки
