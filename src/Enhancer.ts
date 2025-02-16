@@ -1,9 +1,27 @@
-import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import { promises as fs } from 'fs';
 import yargs from 'yargs';
 import chalk from 'chalk';
 import { hideBin } from 'yargs/helpers';
+import ffmpeg from 'fluent-ffmpeg';
+
+ffmpeg.setFfmpegPath('C:\\Users\\andre\\Desktop\\Video Enhancer Pro 0.2\\node_modules\\ffmpeg-static\\ffmpeg.exe');
+
+import { exec } from 'child_process';
+
+exec('C:\\Users\\andre\\Desktop\\Video Enhancer Pro 0.2\\node_modules\\ffmpeg-static\\ffmpeg.exe -version', (err, stdout, stderr) => {
+  if (err) {
+    console.error('Ошибка: ', err);
+    return;
+  }
+  if (stderr) {
+    console.error('Ошибка: ', stderr);
+    return;
+  }
+  console.log(stdout);
+});
+
+
 
 interface Args {
   input: string | string[];
