@@ -5,11 +5,13 @@ import chalk from 'chalk';
 import { hideBin } from 'yargs/helpers';
 import ffmpeg from 'fluent-ffmpeg';
 
+// Убедитесь, что путь к FFmpeg правильно обработан с кавычками
 ffmpeg.setFfmpegPath('C:\\Users\\andre\\Desktop\\Video Enhancer Pro 0.2\\node_modules\\ffmpeg-static\\ffmpeg.exe');
 
 import { exec } from 'child_process';
 
-exec('C:\\Users\\andre\\Desktop\\Video Enhancer Pro 0.2\\node_modules\\ffmpeg-static\\ffmpeg.exe -version', (err, stdout, stderr) => {
+// Проверка доступности FFmpeg
+exec('"C:\\Users\\andre\\Desktop\\Video Enhancer Pro 0.2\\node_modules\\ffmpeg-static\\ffmpeg.exe" -version', (err, stdout, stderr) => {
   if (err) {
     console.error('Ошибка: ', err);
     return;
@@ -20,8 +22,6 @@ exec('C:\\Users\\andre\\Desktop\\Video Enhancer Pro 0.2\\node_modules\\ffmpeg-st
   }
   console.log(stdout);
 });
-
-
 
 interface Args {
   input: string | string[];
@@ -71,66 +71,69 @@ async function enhanceVideo(
   return new Promise((resolve, reject) => {
     const command = ffmpeg(inputPath)
       .output(outputPath)
-      .size(`${resolution.width}x${resolution.height}`)
       .videoCodec(gpu ? 'h264_nvenc' : 'libx264')
       .outputOptions('-crf', '18')
-      .outputOptions('-preset', 'slow');
-      if (denoise) {
-        command.videoFilter('hqdn3d');
-      }
-  
-      if (stabilize) {
-        command
-          .videoFilter('vidstabdetect=shakiness=10:accuracy=15')
-          .videoFilter('vidstabtransform=smoothing=30:input="transforms.trf"');
-      }
-  
-      if (contrast !== 1 || brightness !== 0 || saturation !== 1) {
-        command.videoFilter(`eq=contrast=${contrast}:brightness=${brightness}:saturation=${saturation}`);
-      }
-  
-      if (sharpness) {
-        command.videoFilter(`unsharp=${sharpness}`);
-      }
-  
-      if (crop) {
-        command.videoFilter(`crop=${crop}`);
-      }
-  
+      .outputOptions('-preset', 'slow')
+      .videoFilter(`scale=${resolution.width}x${resolution.height}:force_original_aspect_ratio=decrease`) // сохранение соотношения сторон
+      .videoFilter('hqdn3d') // фильтрация шума
+
+    if (denoise) {
+      command.videoFilter('hqdn3d');
+    }
+
+    if (stabilize) {
       command
-        .on('start', (commandLine) => {
-          const message = `Запущена команда: ${commandLine}`;
-          console.log(chalk.blue(message));
+        .videoFilter('vidstabdetect=shakiness=10:accuracy=15')
+        .videoFilter('vidstabtransform=smoothing=30:input="transforms.trf"');
+    }
+
+    if (contrast !== 1 || brightness !== 0 || saturation !== 1) {
+      command.videoFilter(`eq=contrast=${contrast}:brightness=${brightness}:saturation=${saturation}`);
+    }
+
+    if (sharpness) {
+      command.videoFilter(`unsharp=${sharpness}`);
+    }
+
+    if (crop) {
+      command.videoFilter(`crop=${crop}`);
+    }
+
+    command
+      .on('start', (commandLine) => {
+        const message = `Запущена команда: ${commandLine}`;
+        console.log(chalk.blue(message));
+        logToFile(message, logFile);
+      })
+      .on('progress', (progress) => {
+        const message = `Обработка: ${Math.floor(progress.percent || 0)}%`;
+        console.log(chalk.yellow(message));
+        logToFile(message, logFile);
+      })
+      .on('end', () => {
+        const message = `Видео улучшено и сохранено в ${outputPath}`;
+        console.log(chalk.green(message));
+        logToFile(message, logFile);
+        resolve();
+      })
+      .on('error', (err) => {
+        if (err instanceof Error) {
+          const message = `Ошибка при обработке видео: ${err.message}`;
+          console.error(chalk.red(message));
           logToFile(message, logFile);
-        })
-        .on('progress', (progress) => {
-          const message = `Обработка: ${Math.floor(progress.percent || 0)}%`;
-          console.log(chalk.yellow(message));
+          reject(err);
+        } else {
+          const message = 'Неизвестная ошибка при обработке видео';
+          console.error(chalk.red(message));
           logToFile(message, logFile);
-        })
-        .on('end', () => {
-          const message = `Видео улучшено и сохранено в ${outputPath}`;
-          console.log(chalk.green(message));
-          logToFile(message, logFile);
-          resolve();
-        })
-        .on('error', (err) => {
-          if (err instanceof Error) {
-            const message = `Ошибка при обработке видео: ${err.message}`;
-            console.error(chalk.red(message));
-            logToFile(message, logFile);
-            reject(err);
-          } else {
-            const message = 'Неизвестная ошибка при обработке видео';
-            console.error(chalk.red(message));
-            logToFile(message, logFile);
-            reject(new Error(message));
-          }
-        })
-        .run();
-    });
-  }
-  const argv = yargs(hideBin(process.argv))
+          reject(new Error(message));
+        }
+      })
+      .run();
+  });
+}
+
+const argv = yargs(hideBin(process.argv))
   .usage(chalk.green('Usage: $0 -i <input> -o <output> [options]'))
   .example(
     chalk.yellow('$0 -i input.mp4 -o output.mp4'),
@@ -151,14 +154,14 @@ async function enhanceVideo(
   .option('width', {
     alias: 'w',
     type: 'number',
-    description: chalk.cyan('Ширина (по умолчанию 1920)'),
-    default: 1920,
+    description: chalk.cyan('Ширина (по умолчанию 3840)'),
+    default: 3840,  // 4K разрешение
   })
   .option('height', {
     alias: 'h',
     type: 'number',
-    description: chalk.cyan('Высота (по умолчанию 1080)'),
-    default: 1080,
+    description: chalk.cyan('Высота (по умолчанию 2160)'),
+    default: 2160,  // 4K разрешение
   })
   .option('denoise', {
     alias: 'd',
@@ -259,4 +262,3 @@ console.log(chalk.magenta(`- Цветокоррекция: -vf eq=contrast=1.2:b
     process.exit(1);
   }
 })();
-  
